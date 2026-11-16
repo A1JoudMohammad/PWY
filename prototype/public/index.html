@@ -157,6 +157,15 @@ input:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 4px color-
 [data-theme="mid"] .method:hover{transform:translateY(-2px)}
 [data-theme="senior"] .method{border-width:3px}
 [data-theme="senior"] .method svg{color:var(--text);width:60px;height:60px}
+.allbox{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:12px 20px;border-radius:var(--radius);background:var(--surface);
+  border:2px dashed var(--line);text-align:left;font-weight:800;transition:transform .3s cubic-bezier(.34,1.56,.64,1),border-color .2s}
+.allbox .sw{flex:none;width:52px;height:30px;border-radius:999px;background:var(--line);position:relative;transition:background .2s}
+.allbox .sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--surface);transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.allbox[aria-checked="true"]{border-style:solid;border-color:var(--accent)}
+.allbox[aria-checked="true"] .sw{background:var(--accent3)}
+.allbox[aria-checked="true"] .sw::after{transform:translateX(22px)}
+.allbox small{font-weight:600;color:var(--muted);margin-left:8px}
+[data-theme="senior"] .allbox{border-width:3px}
 .scanwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding-block:12px}
 .scan{position:relative;width:min(68vw,260px);aspect-ratio:1;border-radius:50%;border:0;background:var(--surface);color:var(--accent2);display:grid;place-items:center;
   touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .2s}
@@ -349,7 +358,7 @@ $("#age").addEventListener("click", e => { const b = e.target.closest("button");
 
 /* Screens: later sections replace the placeholders below */
 const screens = {
-  0: () => `<h1 tabindex="-1">Pay with you.</h1><p class="sub">No card. No phone.</p>
+  0: () => `<h1 tabindex="-1">Pay with you.</h1><p class="sub">No card. No phone. No problem.</p>
             <div class="row"><button class="btn" data-go="1">Get started</button></div>`,
 };
 /* Section 2: sign up. Values stay in memory only; the password is never kept. */
@@ -474,9 +483,12 @@ const ICONS = {
 screens[3] = () => `<h2 tabindex="-1">Choose one</h2>
   <div class="methods">${Object.entries(METHODS).map(([k, v]) =>
     `<button type="button" class="method${state.method === k ? " sel" : ""}" data-method="${k}"><svg viewBox="0 0 64 64" aria-hidden="true">${ICONS[k]}</svg><span>${v}${SUGGESTED.includes(k) ? '<small class="tag">Suggested</small>' : ""}</span></button>`).join("")}</div>
+  <button type="button" class="allbox" id="allBox" role="switch" aria-checked="${!!state.all}"><span class="sw" aria-hidden="true"></span><span>All 3<small>Optional</small></span></button>
   <div class="row"><button class="btn ghost" data-go="2">Back</button></div>`;
 
+const moreLeft = () => state.queue && Object.keys(state.enrolled || {}).length + (state.printId ? 0 : 1) < state.queue.length;
 screens[4] = () => `<h2 tabindex="-1">Scan ${METHODS[state.method || "face"].toLowerCase()}</h2>
+  ${state.queue?.length > 1 ? `<p class="sub">${state.queue.indexOf(state.method) + 1} / ${state.queue.length}</p>` : ""}
   <div class="scanwrap">
     <button type="button" class="scan" id="scan" aria-label="Press and hold to scan">
       <svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="46"/><circle class="bar" cx="50" cy="50" r="46"/></svg>
@@ -489,11 +501,20 @@ screens[4] = () => `<h2 tabindex="-1">Scan ${METHODS[state.method || "face"].toL
     <div class="pid" id="pid"></div>
     <button type="button" class="link" id="camBtn" hidden>Use camera</button>
   </div>
-  <div class="row"><button class="btn ghost" data-go="3">Change</button><button class="btn" id="next" data-go="5" disabled>Continue</button></div>`;
+  <div class="row"><button class="btn ghost" data-go="3">Change</button><button class="btn" id="next" ${moreLeft() ? 'data-act="nextm"' : 'data-go="5"'} disabled>${moreLeft() ? "Next" : "Continue"}</button></div>`;
 
 stage.addEventListener("click", e => {
   const m = e.target.closest("[data-method]");
-  if (m) { state.method = m.dataset.method; state.printId = null; state.activated = false; go(4); }
+  const al = e.target.closest("#allBox");
+  if (al) { state.all = !state.all; al.setAttribute("aria-checked", state.all); return; }
+  if (m) {
+    const k = m.dataset.method, all = Object.keys(METHODS);
+    state.queue = state.all ? [k, ...all.filter(x => x !== k)] : [k];   // with "All 3" each method is enrolled in turn
+    state.enrolled = {}; state.method = k; state.printId = null; state.activated = false; go(4);
+  }
+  if (e.target.closest('[data-act="nextm"]')) {
+    state.method = state.queue[Object.keys(state.enrolled).length]; state.printId = null; go(4);
+  }
 });
 
 afterRender[4] = () => {
@@ -511,6 +532,7 @@ afterRender[4] = () => {
   const hex = bytes => [...bytes].map(n => n.toString(16).padStart(2, "0")).join("").toUpperCase();
   const finish = id => {
     state.printId = "PWY-" + (id || hex(crypto.getRandomValues(new Uint8Array(4))));   // an ID only: no biometric data is read or kept
+    (state.enrolled ||= {})[m] = state.printId;
     stopCam(); btn.classList.remove("live");
     showDone(); navigator.vibrate?.(40);
   };
@@ -571,14 +593,15 @@ afterRender[4] = () => {
 
 /* Section 5: activate + success. Simulated only; nothing is sent anywhere. */
 screens[5] = () => {
-  const label = METHODS[state.method || "face"], bank = state.bank || "Bank";
+  const kinds = Object.keys(state.enrolled || {}).length ? Object.keys(state.enrolled) : [state.method || "face"];
+  const label = kinds.map(k => METHODS[k]).join(" + "), bank = state.bank || "Bank";
   if (state.activated) return `<div class="big"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M16 34l12 12 22-26"/></svg></div>
     <h2 class="center" tabindex="-1">Activated ✅</h2>
-    <p class="sub center">Pay with your ${label.toLowerCase()}</p>
+    <p class="sub center">Pay with ${kinds.length > 1 ? "any of " + kinds.length : "your " + label.toLowerCase()}</p>
     <div class="row"><button class="btn" data-act="try">Try a payment</button></div>`;
   return `<h2 tabindex="-1">Activate</h2>
     <div class="card"><span>${bank}</span><span>${label}</span></div>
-    <p class="pid" style="text-align:left">ID ${state.printId || "-"}</p>
+    ${kinds.length > 1 ? kinds.map(k => `<p class="pid" style="text-align:left">${METHODS[k]} · ID ${state.enrolled[k] || "-"}</p>`).join("") : `<p class="pid" style="text-align:left">ID ${state.printId || "-"}</p>`}
     <div class="row"><button class="btn ghost" data-go="4">Back</button><button class="btn" id="activate" data-act="activate">Activate</button></div>`;
 };
 stage.addEventListener("click", e => {
@@ -629,9 +652,10 @@ const newOrder = () => {
 };
 stage.addEventListener("click", e => {
   const a = e.target.closest("[data-act]")?.dataset.act;
-  if (a === "try" || a === "again") { if (state.balance == null) state.balance = 250; state.order = newOrder(); state.payStage = "scan"; go(6); }
+  if (a === "try" || a === "again") { if (state.balance == null) state.balance = 250; state.order = newOrder(); state.payStage = "scan";
+    const ks = Object.keys(state.enrolled || {}); state.payMethod = ks.length ? ks[Math.random() * ks.length | 0] : state.method; go(6); }
   if (a === "restart") {
-    ["user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
+    ["user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "all", "queue", "enrolled", "payMethod", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
     go(0);
   }
 });
@@ -649,7 +673,7 @@ screens[6] = () => {
     <div class="scanwrap">
       <div class="scan hold auto" aria-hidden="true">
         <svg class="ring" viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="46"/><circle class="bar" cx="50" cy="50" r="46"/></svg>
-        <svg class="ico" viewBox="0 0 64 64">${ICONS[state.method || "face"]}</svg>
+        <svg class="ico" viewBox="0 0 64 64">${ICONS[state.payMethod || state.method || "face"]}</svg>
         <i class="beam"></i>
       </div>
       <div class="status" role="status">Scanning</div>
@@ -660,7 +684,7 @@ afterRender[6] = () => {
   const o = state.order; if (!o) return;
   if (state.payStage === "scan") {
     const tok = state.payTok = {};
-    Promise.all([paymentService.pay({ ...o, bank: state.bank, method: state.method }), new Promise(r => setTimeout(r, 2000))]).then(([res]) => {
+    Promise.all([paymentService.pay({ ...o, bank: state.bank, method: state.payMethod || state.method }), new Promise(r => setTimeout(r, 2000))]).then(([res]) => {
       if (state.payTok !== tok || state.step !== 6) return;   // cancelled or left the screen
       if (!res.ok) { state.payStage = "declined"; go(6); return; }
       state.prevBalance = state.balance; state.balance = Math.round((state.balance - res.amount) * 1000) / 1000;
