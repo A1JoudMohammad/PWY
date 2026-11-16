@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="young">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pay With You</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&display=swap">
+<style>
+/* ---------- Tokens: only colours, motion and sizing change per theme ---------- */
+:root{
+  --font:"Lexend",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --radius:22px;            /* same rounded shapes in every theme */
+  --gap:clamp(16px,3vw,28px);
+  --max:560px;
+}
+:root[data-theme="young"]{
+  --bg:#0b0618; --surface:#17102e; --line:#33265c; --text:#f6f2ff; --muted:#b9acff;
+  --accent:#ff2bd6; --accent2:#00f0ff; --accent3:#b6ff3b; --on-accent:#0b0618;
+  --btn-bg:linear-gradient(120deg,#ff2bd6,#00f0ff,#b6ff3b); --glow:0 0 24px rgba(255,43,214,.55);
+  --fs:17px; --fw:400; --btn-h:56px; --enter:pop .6s cubic-bezier(.34,1.56,.64,1) both; --enter-back:popback .6s cubic-bezier(.34,1.56,.64,1) both;
+}
+:root[data-theme="mid"]{
+  --bg:#eff9f8; --surface:#ffffff; --line:#cfe6e4; --text:#12303a; --muted:#41636c;
+  --accent:#6cc3e6; --accent2:#8fdcb8; --accent3:#8fdcb8; --on-accent:#0c2a33;
+  --btn-bg:linear-gradient(120deg,#8ccfee,#9fe3c4); --glow:none;
+  --fs:17px; --fw:400; --btn-h:56px; --enter:fade .35s ease both; --enter-back:fade .35s ease both;
+}
+:root[data-theme="senior"]{
+  --bg:#f2e7cf; --surface:#fbf4e3; --line:#1b1308; --text:#1b1308; --muted:#3b2d17;
+  --accent:#1b1308; --accent2:#1b1308; --accent3:#1b1308; --on-accent:#fbf4e3;
+  --btn-bg:#1b1308; --glow:none;
+  --fs:22px; --fw:600; --btn-h:76px; --enter:fade .25s linear both; --enter-back:fade .25s linear both;
+}
+
+:root[data-theme="kids"]{
+  --bg:#bfe9ff; --surface:#ffffff; --line:#2b1b4d; --text:#2b1b4d; --muted:#4d3f78;
+  --accent:#ffd23f; --accent2:#e6177a; --accent3:#12a150; --on-accent:#2b1b4d;
+  --btn-bg:#ffd23f; --glow:none;
+  --fs:18px; --fw:600; --btn-h:64px; --enter:bounce .7s cubic-bezier(.34,1.56,.64,1) both; --enter-back:bounce .7s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+/* ---------- Base ---------- */
+*{box-sizing:border-box;margin:0}
+html,body{min-height:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{font-family:var(--font);font-size:var(--fs);font-weight:var(--fw);background:var(--bg);color:var(--text);
+  line-height:1.4;min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;transition:background .4s,color .4s}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--accent2);outline-offset:3px}
+:root[data-theme="senior"] :focus-visible{outline-color:#1b1308;outline-width:4px}
+
+/* floating shapes (16-25 only) */
+.shapes{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;display:none}
+[data-theme="young"] .shapes{display:block}
+.shapes i{position:absolute;width:var(--s);height:var(--s);left:var(--x);top:var(--y);border-radius:38% 62% 55% 45%;
+  background:var(--c);filter:blur(2px);opacity:.28;animation:float var(--d) ease-in-out infinite alternate}
+
+/* layout (same structure in all themes) */
+header,main,footer{position:relative;z-index:1;width:100%;max-width:var(--max);margin-inline:auto;padding-inline:var(--gap)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:var(--gap)}
+.brand{font-weight:800;font-size:1.15em;letter-spacing:-.01em}
+.age{display:flex;gap:4px;padding:4px;background:var(--surface);border:2px solid var(--line);border-radius:999px}
+.age button{border:0;background:transparent;border-radius:999px;padding:10px 12px;min-height:44px;font-weight:600;
+  font-size:.82em;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.age button[aria-checked="true"]{background:var(--accent);color:var(--on-accent)}
+[data-theme="young"] .age button:active{transform:scale(.85)}
+[data-theme="young"] .age button[aria-checked="true"]{box-shadow:var(--glow)}
+
+/* progress */
+.progress{display:flex;gap:6px;list-style:none;padding:0;margin-top:var(--gap);transition:opacity .3s}
+.progress.off{opacity:0;pointer-events:none}
+.progress li{flex:1;height:10px;border-radius:99px;background:var(--line);overflow:hidden;position:relative}
+.progress li::after{content:"";position:absolute;inset:0;background:var(--accent);border-radius:inherit;
+  transform:scaleX(0);transform-origin:left;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.progress li.done::after,.progress li.now::after{transform:scaleX(1)}
+[data-theme="young"] .progress li::after{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+[data-theme="young"] .progress li.now{box-shadow:var(--glow);animation:bump .6s cubic-bezier(.34,1.56,.64,1)}
+.progress li.now:not(:last-child){}
+.step-name{margin-top:8px;font-size:.8em;color:var(--muted);min-height:1.4em}
+
+/* stage + screens */
+main{flex:1;display:flex;align-items:center;padding-block:var(--gap)}
+#stage{width:100%}
+.screen{display:flex;flex-direction:column;gap:var(--gap);animation:var(--enter)}
+.screen.back{animation:var(--enter-back)}
+h1{font-size:clamp(2.4rem,10vw,3.6rem);line-height:1.02;letter-spacing:-.03em;font-weight:800;outline:none}
+h2{font-size:clamp(1.8rem,7vw,2.4rem);line-height:1.1;font-weight:800;outline:none}
+.sub{color:var(--muted);font-size:1.1em}
+[data-theme="young"] h1{background:linear-gradient(100deg,var(--accent),var(--accent2),var(--accent3),var(--accent));background-size:300% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 5s linear infinite;filter:drop-shadow(0 0 14px rgba(255,43,214,.35))}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.btn{min-height:var(--btn-h);padding:0 28px;border:0;border-radius:var(--radius);background:var(--btn-bg);color:var(--on-accent);
+  font-weight:800;font-size:1.05em;transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s;flex:1 1 auto}
+.btn.ghost{background:transparent;color:var(--text);border:2px solid var(--line)}
+[data-theme="young"] .btn{box-shadow:var(--glow);background-size:200% 100%;animation:shine 4s linear infinite}
+[data-theme="young"] .btn.ghost{animation:none;box-shadow:none;border-color:var(--accent2)}
+[data-theme="young"] .btn:hover{transform:scale(1.07) rotate(-1deg)}
+[data-theme="young"] .btn:active{transform:scale(.9)}
+[data-theme="mid"] .btn:hover{transform:translateY(-2px)}
+[data-theme="senior"] .btn{border:3px solid var(--line)}
+[data-theme="senior"] .btn.ghost{border-width:3px}
+
+/* form */
+form{display:flex;flex-direction:column;gap:var(--gap)}
+.field{display:flex;flex-direction:column;gap:8px;font-weight:600}
+.field>span{font-size:.9em;color:var(--muted)}
+input{font:inherit;color:var(--text);width:100%;min-height:var(--btn-h);padding:0 18px;border-radius:var(--radius);
+  background:var(--surface);border:2px solid var(--line);transition:border-color .2s,box-shadow .3s}
+input::placeholder{color:var(--muted);opacity:.7}
+input:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent2) 30%,transparent)}
+[data-theme="senior"] input{border-width:3px}
+[data-theme="senior"] input:focus{box-shadow:0 0 0 4px var(--line)}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.chips button{min-height:var(--btn-h);border-radius:var(--radius);background:var(--surface);border:2px solid var(--line);
+  font-weight:800;transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .2s}
+.chips button[aria-checked="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+[data-theme="young"] .chips button[aria-checked="true"]{box-shadow:var(--glow);transform:scale(1.06)}
+[data-theme="young"] .chips button:active{transform:scale(.88)}
+[data-theme="senior"] .chips button{border-width:3px}
+[data-theme="senior"] .chips button[aria-checked="true"]{border-color:var(--line)}
+
+/* bank + one-time code */
+:root{--bad:#d6334c}
+[data-theme="young"]{--bad:#ff5c7a}
+[data-theme="senior"]{--bad:#a30000}
+.chips.two{grid-template-columns:repeat(2,1fr)}
+.btn:disabled{opacity:.4;cursor:not-allowed;animation:none!important;transform:none!important}
+.spin{display:inline-block;width:1em;height:1em;border:3px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:10px;vertical-align:-.15em;animation:spin .7s linear infinite}
+.card{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px;border-radius:var(--radius);background:var(--surface);border:2px solid var(--line);font-weight:800}
+.otp{position:relative;display:flex;align-items:center;gap:10px}
+.group{display:flex;flex:1;gap:8px}
+.slot{position:relative;flex:1;min-width:0;height:calc(var(--btn-h) + 14px);display:flex;align-items:center;justify-content:center;font-size:1.6em;font-weight:800;
+  border-radius:var(--radius);background:var(--surface);border:2px solid var(--line);pointer-events:none;transition:border-color .2s,box-shadow .25s}
+.slot.on{border-color:var(--accent2);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent2) 30%,transparent)}
+.slot.on.empty::after{content:"";position:absolute;width:2px;height:1.3em;background:var(--text);animation:blink 1.1s steps(1) infinite}
+.dash{width:12px;height:3px;border-radius:2px;background:var(--muted);flex:none}
+#otp{position:absolute;inset:0;width:100%;height:100%;min-height:0;padding:0;border:0;opacity:0;font-size:16px;z-index:2;cursor:text;background:transparent}
+.otp.bad .slot{border-color:var(--bad)}
+[data-theme="young"] .otp.bad{animation:shake .4s}
+.hint{font-size:.85em;color:var(--muted)}
+.hint b{color:var(--text);letter-spacing:.12em}
+.link{align-self:center;min-height:48px;padding:0 16px;background:none;border:0;text-decoration:underline;font-weight:600;color:var(--muted)}
+[data-theme="senior"] .slot,[data-theme="senior"] .card{border-width:3px}
+[data-theme="senior"] .slot.on{box-shadow:0 0 0 4px var(--line)}
+@keyframes blink{50%{opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
+/* biometric: choose + enrol */
+.methods{display:flex;flex-direction:column;gap:12px}
+.method{display:flex;align-items:center;gap:16px;width:100%;min-height:calc(var(--btn-h) + 28px);padding:14px 20px;border-radius:var(--radius);background:var(--surface);
+  border:2px solid var(--line);text-align:left;font-weight:800;font-size:1.15em;transition:transform .3s cubic-bezier(.34,1.56,.64,1),border-color .2s}
+.method svg{width:48px;height:48px;flex:none;color:var(--accent2);fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.method.sel{border-color:var(--accent)}
+[data-theme="young"] .method:hover{transform:scale(1.03) rotate(-.6deg);border-color:var(--accent)}
+[data-theme="young"] .method:active{transform:scale(.94)}
+[data-theme="mid"] .method:hover{transform:translateY(-2px)}
+[data-theme="senior"] .method{border-width:3px}
+[data-theme="senior"] .method svg{color:var(--text);width:60px;height:60px}
+.scanwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding-block:12px}
+.scan{position:relative;width:min(68vw,260px);aspect-ratio:1;border-radius:50%;border:0;background:var(--surface);color:var(--accent2);display:grid;place-items:center;
+  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .2s}
+.scan .ring{position:absolute;inset:-8px;width:calc(100% + 16px);height:calc(100% + 16px);transform:rotate(-90deg);pointer-events:none}
+.ring circle{fill:none;stroke-width:6;stroke-linecap:round}
+.ring .track{stroke:color-mix(in srgb,var(--text) 18%,transparent)}
+.ring .bar{stroke:var(--accent);stroke-dasharray:289;stroke-dashoffset:289}
+[data-theme="young"] .ring .bar{filter:drop-shadow(0 0 8px var(--accent))}
+.scan .ico{width:46%;height:46%;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.scan .beam{position:absolute;left:18%;right:18%;top:14%;height:3px;border-radius:3px;background:var(--accent);opacity:0;pointer-events:none}
+[data-theme="young"] .scan .beam{box-shadow:0 0 14px var(--accent)}
+.scan.hold{transform:scale(.97)}
+.scan.hold .beam{opacity:1;animation:sweep 1.1s ease-in-out infinite alternate}
+[data-theme="young"] .scan.hold{animation:pulse .5s ease-in-out infinite alternate}
+.scan.ok{color:var(--accent3)}
+[data-theme="young"] .scan.ok{animation:tada .7s cubic-bezier(.34,1.56,.64,1)}
+.status{font-weight:800;font-size:1.2em;min-height:1.5em;text-align:center}
+.pid{font-size:.85em;color:var(--muted);text-align:center;min-height:1.3em;letter-spacing:.08em}
+@keyframes sweep{to{top:82%}}
+@keyframes pulse{from{transform:scale(.97)}to{transform:scale(1.03)}}
+@keyframes tada{0%{transform:scale(.9)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+footer{padding-block:var(--gap);display:flex;justify-content:center}
+.demo{font-size:.78em;font-weight:600;padding:8px 14px;border-radius:999px;background:var(--surface);border:2px solid var(--line);color:var(--muted)}
+
+/* intro: waving hand fades into the name, then the age group is picked on a plain white screen */
+header,footer{transition:opacity .6s ease}
+body:not(.on) header,body:not(.on) footer{opacity:0}
+#intro{position:fixed;inset:0;z-index:100;background:#fff;color:#17102e;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow:auto}
+#intro :focus-visible{outline:3px solid #17102e;outline-offset:3px}
+.intro-stage{position:relative;width:100%;height:150px;flex:none;transition:height .8s cubic-bezier(.4,0,.2,1)}
+.s-pick .intro-stage{height:84px}
+.wave,.intro-name{position:absolute;inset:0;display:grid;place-items:center;transition:opacity .6s ease,transform .6s ease,filter .6s ease}
+.wave{font-size:96px;line-height:1;animation:handin .5s ease backwards}
+.wave span{display:inline-block;transform-origin:70% 85%;animation:wave 1.7s .4s ease-in-out backwards}
+.intro-name{font-size:clamp(2.4rem,11vw,3.6rem);font-weight:800;letter-spacing:-.03em;white-space:nowrap;opacity:0;transform:scale(.9) translateY(8px)}
+.s-name .wave{opacity:0;transform:scale(1.25);filter:blur(6px)}
+.s-name .intro-name,.s-pick .intro-name{opacity:1;transform:none}
+.intro-pick{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;width:100%;max-width:420px;
+  transition:grid-template-rows .8s cubic-bezier(.4,0,.2,1),opacity .6s .2s ease,visibility 0s .8s}
+.s-pick .intro-pick{grid-template-rows:1fr;opacity:1;visibility:visible;
+  transition:grid-template-rows .8s cubic-bezier(.4,0,.2,1),opacity .6s .2s ease,visibility 0s 0s}
+.intro-pick>div{overflow:hidden;min-height:0;padding:12px 12px 16px}
+.intro-label{text-align:center;font-weight:600;color:#6b6480;margin-bottom:14px}
+.intro-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ip{min-height:76px;border:0;border-radius:var(--radius);font-weight:800;font-size:1.25em;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.ip:hover{transform:scale(1.05)}
+.ip:active{transform:scale(.93)}
+.ip.young{background:#0b0618;color:#f6f2ff;box-shadow:0 0 0 2px #ff2bd6,0 0 18px rgba(255,43,214,.55)}
+.ip.mid{background:linear-gradient(120deg,#8ccfee,#9fe3c4);color:#0c2a33}
+.ip.senior{background:#f2e7cf;color:#1b1308;border:3px solid #1b1308;font-size:1.4em}
+.ip.kids{background:#ffd23f;color:#2b1b4d;border:3px solid #2b1b4d;box-shadow:0 5px 0 #2b1b4d}
+@keyframes handin{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes wave{0%{transform:rotate(0)}12%{transform:rotate(16deg)}24%{transform:rotate(-10deg)}36%{transform:rotate(16deg)}48%{transform:rotate(-6deg)}60%{transform:rotate(12deg)}72%,100%{transform:rotate(0)}}
+
+/* payment scan runs by itself */
+.scan.auto .bar{animation:fillring 1.9s linear forwards}
+@keyframes fillring{from{stroke-dashoffset:289}to{stroke-dashoffset:0}}
+
+/* email quick-pick */
+.group-email{display:flex;flex-direction:column;gap:10px}
+.mails{display:flex;flex-wrap:wrap;gap:8px}
+.mails button{min-height:44px;padding:0 14px;border-radius:999px;background:var(--surface);border:2px solid var(--line);font-weight:600;font-size:.82em;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),border-color .2s}
+[data-theme="young"] .mails button:hover{transform:scale(1.06);border-color:var(--accent2)}
+[data-theme="young"] .mails button:active,[data-theme="kids"] .mails button:active{transform:scale(.9)}
+[data-theme="mid"] .mails button:hover{border-color:var(--accent)}
+[data-theme="senior"] .mails button{min-height:56px;border-width:3px}
+[data-theme="kids"] .mails button{border-width:3px;box-shadow:0 3px 0 var(--line)}
+
+/* live camera inside the scan circle */
+.scan .cam{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;transform:scaleX(-1);display:none;pointer-events:none}
+.scan.live .cam{display:block}
+.scan.live .ico{width:62%;height:62%;color:#fff;opacity:.75;stroke-dasharray:3 4;filter:drop-shadow(0 0 3px rgba(0,0,0,.7))}
+.scan.live .beam{box-shadow:0 0 10px var(--accent),0 0 0 1px rgba(0,0,0,.4)}
+
+/* activate + success */
+.big{width:min(40vw,150px);aspect-ratio:1;border-radius:50%;background:var(--btn-bg);color:var(--on-accent);display:grid;place-items:center;margin-inline:auto}
+.big svg{width:55%;height:55%;fill:none;stroke:currentColor;stroke-width:7;stroke-linecap:round;stroke-linejoin:round}
+.big path{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .5s .25s ease forwards}
+[data-theme="young"] .big{box-shadow:var(--glow);animation:tada .7s cubic-bezier(.34,1.56,.64,1)}
+[data-theme="kids"] .big{border:3px solid var(--line);box-shadow:0 6px 0 var(--line);animation:tada .7s cubic-bezier(.34,1.56,.64,1)}
+[data-theme="senior"] .big{border:3px solid var(--line)}
+.center{text-align:center}
+.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* suggested tag */
+.tag{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:.6em;font-weight:600;vertical-align:middle}
+
+/* kids: cartoon look (same font, same rounded shapes; only colour, outline and motion change) */
+:root[data-theme="kids"] :focus-visible{outline-color:var(--line);outline-width:4px}
+[data-theme="kids"] .shapes{display:block}
+[data-theme="kids"] .shapes i{background:#fff;border:3px solid var(--line);border-radius:50%;filter:none;opacity:.6}
+[data-theme="kids"] h1{text-shadow:3px 3px 0 var(--accent2)}
+[data-theme="kids"] h2{text-shadow:2px 2px 0 var(--accent2)}
+[data-theme="kids"] .btn{border:3px solid var(--line);box-shadow:0 6px 0 var(--line)}
+[data-theme="kids"] .btn.ghost{background:#fff;border-width:3px}
+[data-theme="kids"] .btn:hover{transform:translateY(-3px) rotate(-1.5deg);box-shadow:0 9px 0 var(--line)}
+[data-theme="kids"] .btn:active{transform:translateY(5px);box-shadow:0 1px 0 var(--line)}
+[data-theme="kids"] .btn:disabled{box-shadow:0 6px 0 var(--line)}
+[data-theme="kids"] input,[data-theme="kids"] .chips button,[data-theme="kids"] .method,[data-theme="kids"] .card,
+[data-theme="kids"] .slot,[data-theme="kids"] .age,[data-theme="kids"] .demo{border-width:3px}
+[data-theme="kids"] .chips button,[data-theme="kids"] .method,[data-theme="kids"] .card{box-shadow:0 5px 0 var(--line)}
+[data-theme="kids"] .chips button[aria-checked="true"]{border-color:var(--line);transform:scale(1.05) rotate(-1deg)}
+[data-theme="kids"] .chips button:active,[data-theme="kids"] .method:active{transform:translateY(4px);box-shadow:0 1px 0 var(--line)}
+[data-theme="kids"] .method:hover{transform:translateY(-3px) rotate(-.8deg)}
+[data-theme="kids"] .method.sel{border-color:var(--accent2)}
+[data-theme="kids"] .age button:active{transform:scale(.85)}
+[data-theme="kids"] .progress li{background:#fff;border:3px solid var(--line);height:16px}
+[data-theme="kids"] .tag{border:2px solid var(--line)}
+[data-theme="kids"] .slot.on{border-color:var(--accent2)}
+[data-theme="kids"] .scan{border:3px solid var(--line);box-shadow:0 6px 0 var(--line)}
+[data-theme="kids"] .ring .bar{stroke:var(--accent2)}
+[data-theme="kids"] .scan .beam{box-shadow:0 0 0 2px var(--line)}
+[data-theme="kids"] .scan.hold{animation:pulse .5s ease-in-out infinite alternate}
+[data-theme="kids"] .scan.ok{animation:tada .7s cubic-bezier(.34,1.56,.64,1)}
+@keyframes bounce{0%{opacity:0;transform:translateY(50px) scale(.8)}60%{opacity:1;transform:translateY(-14px) scale(1.04)}100%{opacity:1;transform:none}}
+
+/* motion */
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{0%{opacity:0;transform:translateX(60px) scale(.85)}100%{opacity:1;transform:none}}
+@keyframes popback{0%{opacity:0;transform:translateX(-60px) scale(.85)}100%{opacity:1;transform:none}}
+@keyframes float{from{transform:translate(0,0) rotate(0)}to{transform:translate(30px,-50px) rotate(40deg)}}
+@keyframes shine{to{background-position:300% 0}}
+@keyframes bump{0%{transform:scaleY(.6)}60%{transform:scaleY(1.7)}100%{transform:scaleY(1)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div id="intro" role="dialog" aria-label="Choose age group">
+  <div class="intro-stage">
+    <div class="wave" aria-hidden="true"><span>👋</span></div>
+    <div class="intro-name">Pay With You</div>
+  </div>
+  <div class="intro-pick"><div>
+    <p class="intro-label">Age group</p>
+    <div class="intro-grid">
+      <button type="button" class="ip young" data-start="young">16-25</button>
+      <button type="button" class="ip mid" data-start="mid">26-40</button>
+      <button type="button" class="ip senior" data-start="senior">41+</button>
+      <button type="button" class="ip kids" data-start="kids">Kids</button>
+    </div>
+  </div></div>
+</div>
+<div class="shapes" aria-hidden="true">
+  <i style="--s:180px;--x:-40px;--y:12%;--c:#ff2bd6;--d:7s"></i>
+  <i style="--s:120px;--x:70%;--y:6%;--c:#00f0ff;--d:5s"></i>
+  <i style="--s:220px;--x:60%;--y:62%;--c:#b6ff3b;--d:9s"></i>
+  <i style="--s:90px;--x:12%;--y:75%;--c:#7a5cff;--d:6s"></i>
+</div>
+
+<header>
+  <div class="brand">Pay With You</div>
+  <div class="age" role="radiogroup" aria-label="Age range" id="age">
+    <button role="radio" data-age="young" aria-checked="true">16-25</button>
+    <button role="radio" data-age="mid" aria-checked="false">26-40</button>
+    <button role="radio" data-age="senior" aria-checked="false">41+</button>
+    <button role="radio" data-age="kids" aria-checked="false">Kids</button>
+  </div>
+  <ol class="progress off" id="progress" aria-label="Progress" style="width:100%"></ol>
+</header>
+
+<main><div id="stage" aria-live="polite"></div></main>
+<footer><span class="demo">Demo only</span></footer>
+
+<script src="paymentService.js"></script>
+<script>
+/* In-memory state only: nothing is stored. Only the payment amount and shop name go to paymentService. */
+const STEPS = ["Sign up","Bank","Biometric","Scan","Activate","Pay"];
+const state = { age:"young", step:0 };           // step 0 = hero, 1..6 = STEPS
+const $ = s => document.querySelector(s);
+const stage = $("#stage"), progress = $("#progress");
+
+progress.innerHTML = STEPS.map(n => `<li title="${n}"></li>`).join("") ;
+progress.insertAdjacentHTML("afterend", '<div class="step-name" id="stepName" style="width:100%"></div>');
+
+function setAge(age){
+  state.age = age;
+  document.documentElement.dataset.theme = age;
+  document.querySelectorAll("#age button").forEach(b => b.setAttribute("aria-checked", b.dataset.age === age));
+  document.querySelectorAll("[data-pick]").forEach(b => b.setAttribute("aria-checked", b.dataset.pick === age));
+  /* Kids profile is set up by a parent: labels switch to the parent's account */
+  const kids = age === "kids", txt = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  txt("lblName", kids ? "Child name" : "Name"); txt("lblEmail", kids ? "Parent email" : "Email");
+  txt("lblPass", kids ? "Parent password" : "Password"); txt("bankTitle", kids ? "Parent's bank" : "Your bank");
+  const ni = document.getElementById("nameIn"); if (ni) ni.placeholder = kids ? "Child's name" : "Your name";
+}
+$("#age").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setAge(b.dataset.age); });
+
+/* Screens: later sections replace the placeholders below */
+const screens = {
+  0: () => `<h1 tabindex="-1">Pay with you.</h1><p class="sub">No card. No phone.</p>
+            <div class="row"><button class="btn" data-go="1">Get started</button></div>`,
+};
+/* Section 2: sign up. Values stay in memory only; the password is never kept. */
+const AGE_LABEL = { young:"16-25", mid:"26-40", senior:"41+", kids:"Kids" };
+const MAILS = ["@gmail.com", "@hotmail.com", "@outlook.com", "@yahoo.com", "@icloud.com"];
+/* Email quick-pick: keeps what was typed before the "@" and adds the chosen ending */
+stage.addEventListener("click", e => {
+  const b = e.target.closest("[data-mail]"); if (!b) return;
+  const i = $("#emailIn"), local = i.value.split("@")[0].trim();
+  i.value = local + b.dataset.mail; i.focus();
+  if (!local) { try { i.setSelectionRange(0, 0); } catch {} }
+});
+screens[1] = () => `<h2 tabindex="-1">Sign up</h2>
+  <form id="signup" autocomplete="off">
+    <label class="field"><span id="lblName">${state.age === "kids" ? "Child name" : "Name"}</span><input id="nameIn" name="name" required placeholder="${state.age === "kids" ? "Child's name" : "Your name"}" autocomplete="off"></label>
+    <div class="group-email">
+      <label class="field"><span id="lblEmail">${state.age === "kids" ? "Parent email" : "Email"}</span><input id="emailIn" name="email" type="text" inputmode="email" autocapitalize="off" spellcheck="false" pattern="[^@ ]+@[^@ ]+[.][^@ ]+" title="name@example.com" required placeholder="you@example.com" autocomplete="off"></label>
+      <div class="mails" role="group" aria-label="Email ending">${MAILS.map(d => `<button type="button" data-mail="${d}">${d}</button>`).join("")}</div>
+    </div>
+    <label class="field"><span id="lblPass">${state.age === "kids" ? "Parent password" : "Password"}</span><input name="password" type="password" required minlength="8" placeholder="8+ characters" autocomplete="new-password"></label>
+    <div class="field"><span id="ageLbl">Age</span>
+      <div class="chips two" role="radiogroup" aria-labelledby="ageLbl">
+        ${Object.entries(AGE_LABEL).map(([k, v]) => `<button type="button" role="radio" data-pick="${k}" aria-checked="${k === state.age}">${v}</button>`).join("")}
+      </div></div>
+    <div class="row"><button type="button" class="btn ghost" data-go="0">Back</button><button class="btn" type="submit">Continue</button></div>
+  </form>`;
+stage.addEventListener("click", e => { const b = e.target.closest("[data-pick]"); if (b) setAge(b.dataset.pick); });
+stage.addEventListener("submit", e => {
+  e.preventDefault();
+  if (e.target.id !== "signup") return;
+  const f = new FormData(e.target);
+  state.user = { name: f.get("name").trim(), email: f.get("email").trim(), ageRange: AGE_LABEL[state.age], linkedToParent: state.age === "kids" };
+  go(2);
+});
+
+/* Section 3: bank link + bank code (all mocked, nothing real is asked or sent) */
+const BANKS = ["NBK","KFH","Gulf Bank","Boubyan","Burgan","CBK"];
+const afterRender = {};
+const newCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const kwd = n => "KWD " + n.toFixed(3);
+const slot = '<div class="slot"><span></span></div>';
+screens[2] = () => {
+  const s = state.bankStage || "pick";
+  if (s === "pick") return `<h2 id="bankTitle" tabindex="-1">${state.age === "kids" ? "Parent's bank" : "Your bank"}</h2>
+    <div class="chips two" role="radiogroup" aria-label="Bank">${BANKS.map(b => `<button type="button" role="radio" data-bank="${b}" aria-checked="${b === state.bank}">${b}</button>`).join("")}</div>
+    <div class="row"><button class="btn ghost" data-go="1">Back</button><button class="btn" id="connect" data-act="connect" ${state.bank ? "" : "disabled"}>Connect</button></div>`;
+  if (s === "otp") return `<h2 tabindex="-1">Confirm bank</h2><p class="sub">Code from ${state.bank}</p>
+    <form id="otpForm" style="display:flex;flex-direction:column;gap:var(--gap)">
+      <div class="otp" id="otpBox">
+        <div class="group">${slot.repeat(3)}</div><i class="dash"></i><div class="group">${slot.repeat(3)}</div>
+        <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" aria-label="6-digit code">
+      </div>
+      <p class="hint" id="otpMsg" role="status">Demo code: <b id="demoCode">${state.otpCode}</b></p>
+      <div class="row"><button type="button" class="btn ghost" data-act="rebank">Back</button><button class="btn" id="confirm" type="submit" disabled>Confirm</button></div>
+      <button type="button" class="link" data-act="resend">Resend</button>
+    </form>`;
+  return `<h2 tabindex="-1">Bank linked ✅</h2>${state.age === "kids" ? '<p class="sub">Parent account</p>' : ""}
+    <div class="card"><span>${state.bank}</span><span>${kwd(state.balance)}</span></div>
+    <div class="row"><button class="btn" data-go="3">Continue</button></div>`;
+};
+
+stage.addEventListener("click", e => {
+  const bk = e.target.closest("[data-bank]");
+  if (bk) {
+    state.bank = bk.dataset.bank;
+    stage.querySelectorAll("[data-bank]").forEach(b => b.setAttribute("aria-checked", b === bk));
+    $("#connect").disabled = false; return;
+  }
+  const a = e.target.closest("[data-act]")?.dataset.act;
+  if (a === "connect") {
+    const b = $("#connect"); b.disabled = true; b.innerHTML = '<span class="spin"></span>Connecting';
+    setTimeout(() => { state.bankStage = "otp"; state.otpCode = newCode(); go(2); }, 1300);
+  }
+  if (a === "rebank") { state.bankStage = "pick"; go(2); }
+  if (a === "resend") {
+    state.otpCode = newCode(); $("#demoCode").textContent = state.otpCode;
+    const i = $("#otp"); i.value = ""; i.dispatchEvent(new Event("input")); i.focus();
+  }
+});
+
+stage.addEventListener("submit", e => {
+  if (e.target.id !== "otpForm") return;
+  e.preventDefault();
+  const i = $("#otp"), box = $("#otpBox");
+  if (i.value === state.otpCode) {
+    state.balance = Math.round((200 + Math.random() * 700) * 1000) / 1000;   // mock balance
+    state.bankStage = "done"; go(2); return;
+  }
+  box.classList.remove("bad"); void box.offsetWidth; box.classList.add("bad");
+  $("#otpMsg").textContent = "Wrong code";
+  setTimeout(() => { i.value = ""; i.dispatchEvent(new Event("input")); i.focus(); }, 450);
+});
+
+/* One real input sits invisibly over six display boxes, so autofill, paste and keyboards all work. */
+afterRender[2] = () => {
+  const inp = $("#otp"); if (!inp) return;
+  const slots = [...stage.querySelectorAll(".slot")], box = $("#otpBox");
+  const paint = () => {
+    const v = inp.value, on = document.activeElement === inp, at = Math.min(v.length, 5);
+    slots.forEach((s, n) => { s.classList.toggle("on", on && n === at); s.classList.toggle("empty", !v[n]); s.firstChild.textContent = v[n] || ""; });
+    $("#confirm").disabled = v.length < 6;
+  };
+  const end = () => inp.setSelectionRange(inp.value.length, inp.value.length);
+  inp.addEventListener("input", () => {
+    inp.value = inp.value.replace(/\D/g, "").slice(0, 6);
+    if (box.classList.contains("bad")) { box.classList.remove("bad"); $("#otpMsg").innerHTML = `Demo code: <b id="demoCode">${state.otpCode}</b>`; }
+    paint();
+  });
+  ["focus","blur"].forEach(t => inp.addEventListener(t, paint));
+  ["focus","click","select","keyup"].forEach(t => inp.addEventListener(t, end));
+  inp.focus({ preventScroll:true }); paint();
+};
+
+/* Section 4: choose + enrol biometric. Simulated only: no camera, no real capture; only a mock ID is kept in memory. */
+const METHODS = { face:"Face", finger:"Fingerprint", palm:"Palm" };
+const SUGGESTED = ["finger", "palm"];   // shown with a "Suggested" tag in every age group
+const ICONS = {
+  face: '<rect x="10" y="10" width="44" height="44" rx="14"/><path d="M24 26v3M40 26v3M32 28v8h-3M24 42c5 4 11 4 16 0"/>',
+  finger: '<path d="M16 24c4-8 12-12 20-10 8 2 12 9 12 16v4"/><path d="M12 34c0-4 1-8 3-11"/><path d="M20 50c2-4 3-8 3-13 0-6 4-10 9-10s9 4 9 10c0 6-1 11-4 16"/><path d="M30 52c2-5 2-9 2-15"/><path d="M13 42c0 4-1 7-3 9"/>',
+  palm: '<path d="M20 34V20a3 3 0 0 1 6 0v10M26 30V12a3 3 0 0 1 6 0v18M32 30V14a3 3 0 0 1 6 0v16M38 30V20a3 3 0 0 1 6 0v22c0 10-6 14-12 14s-10-4-13-10l-6-9a3 3 0 0 1 5-3l4 5"/>'
+};
+screens[3] = () => `<h2 tabindex="-1">Choose one</h2>
+  <div class="methods">${Object.entries(METHODS).map(([k, v]) =>
+    `<button type="button" class="method${state.method === k ? " sel" : ""}" data-method="${k}"><svg viewBox="0 0 64 64" aria-hidden="true">${ICONS[k]}</svg><span>${v}${SUGGESTED.includes(k) ? '<small class="tag">Suggested</small>' : ""}</span></button>`).join("")}</div>
+  <div class="row"><button class="btn ghost" data-go="2">Back</button></div>`;
+
+screens[4] = () => `<h2 tabindex="-1">Scan ${METHODS[state.method || "face"].toLowerCase()}</h2>
+  <div class="scanwrap">
+    <button type="button" class="scan" id="scan" aria-label="Press and hold to scan">
+      <svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="46"/><circle class="bar" cx="50" cy="50" r="46"/></svg>
+      <video class="cam" id="cam" playsinline muted aria-hidden="true"></video>
+      <svg class="ico" viewBox="0 0 64 64" aria-hidden="true">${ICONS[state.method || "face"]}</svg>
+      <i class="beam"></i>
+    </button>
+    <div class="status" id="status" role="status">Press and hold</div>
+    <div class="sub center" id="note"></div>
+    <div class="pid" id="pid"></div>
+    <button type="button" class="link" id="camBtn" hidden>Use camera</button>
+  </div>
+  <div class="row"><button class="btn ghost" data-go="3">Change</button><button class="btn" id="next" data-go="5" disabled>Continue</button></div>`;
+
+stage.addEventListener("click", e => {
+  const m = e.target.closest("[data-method]");
+  if (m) { state.method = m.dataset.method; state.printId = null; state.activated = false; go(4); }
+});
+
+afterRender[4] = () => {
+  const btn = $("#scan"); if (!btn) return;
+  const bar = btn.querySelector(".bar"), status = $("#status"), pid = $("#pid"), next = $("#next");
+  const note = $("#note"), camBtn = $("#camBtn"), video = $("#cam"), m = state.method || "face";
+  let busy = false;
+  const C = 289, HOLD = 2200;
+  let t0 = 0, raf = 0;
+  const set = p => { bar.style.strokeDashoffset = C * (1 - p); };
+  const showDone = () => {
+    btn.classList.remove("hold"); btn.classList.add("ok"); set(1);
+    status.textContent = "Unique print saved ✅"; pid.textContent = "ID " + state.printId; next.disabled = false;
+  };
+  const hex = bytes => [...bytes].map(n => n.toString(16).padStart(2, "0")).join("").toUpperCase();
+  const finish = id => {
+    state.printId = "PWY-" + (id || hex(crypto.getRandomValues(new Uint8Array(4))));   // an ID only: no biometric data is read or kept
+    stopCam(); btn.classList.remove("live");
+    showDone(); navigator.vibrate?.(40);
+  };
+  /* Fingerprint: ask the device's own sensor (Touch ID, Windows Hello, Android) through WebAuthn.
+     The page never sees the fingerprint, only whether it matched. Falls back to the demo scan if unavailable. */
+  const verifyDevice = async () => {
+    try {
+      if (!window.PublicKeyCredential || !navigator.credentials || !(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())) return { res: "skip" };
+    } catch { return { res: "skip" }; }
+    status.textContent = "Verify on device";
+    const t = performance.now();
+    try {
+      const cred = await navigator.credentials.create({ publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: "Pay With You" },
+        user: { id: crypto.getRandomValues(new Uint8Array(16)), name: "demo", displayName: "Demo" },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" },
+        timeout: 60000, attestation: "none" } });
+      return { res: "ok", id: hex(new Uint8Array(cred.rawId).slice(0, 4)) };
+    } catch { return { res: performance.now() - t < 700 ? "skip" : "cancel" }; }   // an instant refusal means blocked, a slow one means the person cancelled
+  };
+  const complete = async () => {
+    if (m !== "finger") return finish();
+    busy = true; const r = await verifyDevice(); busy = false;
+    if (r.res === "cancel") { bar.style.transition = "stroke-dashoffset .35s"; set(0); status.textContent = "Try again"; return; }
+    finish(r.id);
+  };
+  const loop = now => {
+    const p = Math.min((now - t0) / HOLD, 1); set(p);
+    if (p < 1) { raf = requestAnimationFrame(loop); return; }
+    raf = 0; btn.classList.remove("hold"); complete();
+  };
+  const start = () => {
+    if (state.printId || raf || busy) return;
+    t0 = performance.now(); bar.style.transition = "none";
+    btn.classList.add("hold"); status.textContent = "Scanning"; raf = requestAnimationFrame(loop);
+  };
+  const stop = () => {
+    if (!raf) return;
+    cancelAnimationFrame(raf); raf = 0; btn.classList.remove("hold");
+    bar.style.transition = "stroke-dashoffset .35s"; set(0);
+    status.textContent = "Try again";
+  };
+  btn.addEventListener("pointerdown", e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); start(); });
+  ["pointerup", "pointercancel"].forEach(t => btn.addEventListener(t, stop));
+  btn.addEventListener("contextmenu", e => e.preventDefault());
+  btn.addEventListener("keydown", e => { if ((e.code === "Space" || e.code === "Enter") && !e.repeat) { e.preventDefault(); start(); } });
+  btn.addEventListener("keyup", e => { if (e.code === "Space" || e.code === "Enter") stop(); });
+  /* Face and palm: live camera preview on this device only. Nothing is recorded, saved or sent. */
+  const camOn = async () => {
+    camBtn.hidden = true; note.textContent = "";
+    if (await startCam(video)) { btn.classList.add("live"); note.textContent = m === "face" ? "Face the camera" : "Show your palm"; pid.textContent = "Camera stays on this device"; }
+    else { note.textContent = "Camera off"; camBtn.hidden = false; }
+  };
+  camBtn.addEventListener("click", camOn);
+  if (state.printId) showDone(); else if (m !== "finger") camOn();
+};
+
+/* Section 5: activate + success. Simulated only; nothing is sent anywhere. */
+screens[5] = () => {
+  const label = METHODS[state.method || "face"], bank = state.bank || "Bank";
+  if (state.activated) return `<div class="big"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M16 34l12 12 22-26"/></svg></div>
+    <h2 class="center" tabindex="-1">Activated ✅</h2>
+    <p class="sub center">Pay with your ${label.toLowerCase()}</p>
+    <div class="row"><button class="btn" data-act="try">Try a payment</button></div>`;
+  return `<h2 tabindex="-1">Activate</h2>
+    <div class="card"><span>${bank}</span><span>${label}</span></div>
+    <p class="pid" style="text-align:left">ID ${state.printId || "-"}</p>
+    <div class="row"><button class="btn ghost" data-go="4">Back</button><button class="btn" id="activate" data-act="activate">Activate</button></div>`;
+};
+stage.addEventListener("click", e => {
+  if (!e.target.closest('[data-act="activate"]')) return;
+  const b = $("#activate"); b.disabled = true; b.innerHTML = '<span class="spin"></span>Activating';
+  setTimeout(() => { state.activated = true; state.celebrate = true; go(5); }, 1100);
+});
+afterRender[5] = () => { if (state.celebrate) { state.celebrate = false; confetti(); } };
+
+/* Camera helpers: live preview only. Frames are never captured, stored or sent. */
+let camStream = null;
+async function startCam(video){
+  if (!navigator.mediaDevices?.getUserMedia) return false;
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 640 } }, audio: false });
+    if (state.step !== 4) { stopCam(); return false; }   // the person already left the scan screen
+    video.srcObject = camStream; await video.play(); return true;
+  } catch { stopCam(); return false; }
+}
+function stopCam(){ camStream?.getTracks().forEach(t => t.stop()); camStream = null; }
+
+/* Confetti: 16-25 and Kids themes only, skipped when the device asks for reduced motion */
+function confetti(){
+  if (!["young", "kids"].includes(state.age) || matchMedia("(prefers-reduced-motion:reduce)").matches) return;
+  const cv = document.createElement("canvas"); cv.className = "confetti"; document.body.append(cv);
+  const ctx = cv.getContext("2d"), dpr = devicePixelRatio || 1;
+  const W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr;
+  const cs = getComputedStyle(document.documentElement), kids = state.age === "kids";
+  const cols = ["--accent", "--accent2", "--accent3"].map(v => cs.getPropertyValue(v).trim()).concat(kids ? ["#ff8a3d", "#2bb8ff"] : ["#ffffff", "#7a5cff"]);
+  const ps = Array.from({ length: 140 }, () => ({ x: W / 2, y: H * .55, vx: (Math.random() - .5) * 18 * dpr, vy: (-Math.random() * 16 - 6) * dpr,
+    s: (6 + Math.random() * 7) * dpr, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[Math.random() * cols.length | 0] }));
+  let t = 0;
+  (function tick(){
+    ctx.clearRect(0, 0, W, H); t++;
+    ps.forEach(p => { p.vy += .45 * dpr; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * .66); ctx.restore(); });
+    t < 150 ? requestAnimationFrame(tick) : cv.remove();
+  })();
+}
+
+/* paymentService comes from paymentService.js: mock by default, real API only when the server has the secrets. */
+
+/* Section 6: payment demo. Animated scan, then Paid and the balance going down (all simulated). */
+const SHOPS = ["Demo cafe", "Demo market", "Demo bakery", "Demo bookshop"], AMOUNTS = [1.25, 2.5, 3.75, 4.5, 6];
+const newOrder = () => {
+  const bal = state.balance ?? 250, ok = AMOUNTS.filter(a => a <= bal), pool = ok.length ? ok : [bal];
+  return { shop: SHOPS[Math.random() * SHOPS.length | 0], amount: pool[Math.random() * pool.length | 0] };
+};
+stage.addEventListener("click", e => {
+  const a = e.target.closest("[data-act]")?.dataset.act;
+  if (a === "try" || a === "again") { if (state.balance == null) state.balance = 250; state.order = newOrder(); state.payStage = "scan"; go(6); }
+  if (a === "restart") {
+    ["user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
+    go(0);
+  }
+});
+screens[6] = () => {
+  const o = state.order || (state.order = newOrder());
+  if (state.payStage === "declined") return `<h2 tabindex="-1">Declined</h2><p class="sub">${o.shop}, ${kwd(o.amount)}</p>
+    <div class="row"><button class="btn ghost" data-act="restart">Start over</button><button class="btn" data-act="again">Try again</button></div>`;
+  if (state.payStage === "paid") return `<div class="big"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M16 34l12 12 22-26"/></svg></div>
+    <h2 class="center" tabindex="-1">Paid ✅</h2>
+    <div class="card"><span>${o.shop}</span><span>${kwd(o.amount)}</span></div>
+    <div class="card"><span>${state.bank || "Bank"}</span><span id="bal">${kwd(state.prevBalance ?? state.balance)}</span></div>
+    <p class="pid">Ref ${state.receipt}</p>
+    <div class="row"><button class="btn ghost" data-act="restart">Start over</button><button class="btn" data-act="again">Pay again</button></div>`;
+  return `<h2 tabindex="-1">${kwd(o.amount)}</h2><p class="sub">${o.shop}</p>
+    <div class="scanwrap">
+      <div class="scan hold auto" aria-hidden="true">
+        <svg class="ring" viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="46"/><circle class="bar" cx="50" cy="50" r="46"/></svg>
+        <svg class="ico" viewBox="0 0 64 64">${ICONS[state.method || "face"]}</svg>
+        <i class="beam"></i>
+      </div>
+      <div class="status" role="status">Scanning</div>
+    </div>
+    <div class="row"><button class="btn ghost" data-go="5">Cancel</button></div>`;
+};
+afterRender[6] = () => {
+  const o = state.order; if (!o) return;
+  if (state.payStage === "scan") {
+    const tok = state.payTok = {};
+    Promise.all([paymentService.pay({ ...o, bank: state.bank, method: state.method }), new Promise(r => setTimeout(r, 2000))]).then(([res]) => {
+      if (state.payTok !== tok || state.step !== 6) return;   // cancelled or left the screen
+      if (!res.ok) { state.payStage = "declined"; go(6); return; }
+      state.prevBalance = state.balance; state.balance = Math.round((state.balance - res.amount) * 1000) / 1000;
+      state.receipt = res.ref; state.payStage = "paid"; state.celebrate = true; go(6);
+    });
+  } else if (state.payStage === "paid") {
+    if (state.celebrate) { state.celebrate = false; confetti(); }
+    const el = $("#bal"), from = state.prevBalance, to = state.balance, t0 = performance.now();
+    (function tick(now){
+      const p = Math.min((now - t0) / 1200, 1), ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = kwd(from + (to - from) * ease);
+      if (p < 1 && document.body.contains(el)) requestAnimationFrame(tick);
+    })(t0);
+  }
+};
+
+const placeholder = i => `<h2 tabindex="-1">${STEPS[i-1]}</h2><p class="sub">Coming next</p>
+  <div class="row"><button class="btn ghost" data-go="${i-1}">Back</button>
+  ${i < STEPS.length ? `<button class="btn" data-go="${i+1}">Next</button>` : ""}</div>`;
+
+function go(i){
+  stopCam();   // the camera is only on during the scan step
+  const back = i < state.step; state.step = i;
+  stage.innerHTML = `<section class="screen${back ? " back" : ""}">${(screens[i] || (() => placeholder(i)))()}</section>`;
+  progress.classList.toggle("off", i === 0);
+  [...progress.children].forEach((li, n) => { li.className = n + 1 < i ? "done" : n + 1 === i ? "now" : ""; });
+  $("#stepName").textContent = i ? STEPS[i-1] : "";
+  stage.querySelector("h1,h2")?.focus({ preventScroll:true });
+  afterRender[i]?.();
+}
+stage.addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) go(+b.dataset.go); });
+
+/* Intro: the hand waves, fades into the name, then the age group is picked on a plain white screen */
+const intro = $("#intro"), reduced = matchMedia("(prefers-reduced-motion:reduce)").matches;
+document.documentElement.style.overflow = "hidden";
+setAge("mid");   // neutral until a group is chosen
+const showPick = () => intro.classList.add("s-pick");
+if (reduced) { intro.classList.add("s-name"); showPick(); }
+else { setTimeout(() => intro.classList.add("s-name"), 2000); setTimeout(showPick, 3100); }
+intro.addEventListener("click", e => {
+  const b = e.target.closest("[data-start]"); if (!b) return;
+  intro.style.pointerEvents = "none";
+  const age = b.dataset.start, r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+  setAge(age);
+  const done = () => { intro.remove(); document.documentElement.style.overflow = ""; document.body.classList.add("on"); };
+  if (reduced) { done(); go(0); }
+  else if (age === "young" || age === "kids") {
+    /* animated groups: the chosen theme grows out from the tapped button */
+    const wipe = document.createElement("div");
+    wipe.style.cssText = "position:fixed;inset:0;z-index:101;background:" + getComputedStyle(document.documentElement).getPropertyValue("--bg");
+    document.body.append(wipe);
+    wipe.animate([{ clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(150vmax at ${x}px ${y}px)` }], { duration: 900, easing: "cubic-bezier(.65,0,.35,1)" })
+      .onfinish = () => { wipe.remove(); done(); go(0); };
+  } else {
+    /* calm groups: a plain fade */
+    go(0); document.body.classList.add("on");
+    intro.style.transition = `opacity ${age === "mid" ? 600 : 300}ms ease`; intro.style.opacity = 0;
+    setTimeout(done, age === "mid" ? 650 : 350);
+  }
+});
+</script>
+</body>
+</html>
