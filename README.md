@@ -31,3 +31,4 @@ Security model: every table has Row Level Security and is read-only to the brows
 3. Deploy. Every push to `main` redeploys.
 
 `legacy/mvp-design.html` is the original single-file design, kept for reference.
+# PWY
