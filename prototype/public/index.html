@@ -284,6 +284,36 @@ body.ret #age{display:none}
 .method[disabled]{opacity:.5;cursor:not-allowed}
 .method small{display:block;font-weight:600;color:var(--muted);font-size:.7em}
 
+/* forgot password: demo email */
+.mailcard{display:flex;flex-direction:column;gap:10px;text-align:center;padding:18px;border-radius:var(--radius);background:var(--surface);border:2px solid var(--line)}
+.mc-from{font-size:.85em;color:var(--muted);font-weight:600}
+.mc-subj{font-weight:800;font-size:1.15em}
+.mc-demo{font-size:.8em;color:var(--muted)}
+[data-theme="senior"] .mailcard{border-width:3px}
+[data-theme="kids"] .mailcard{border-width:3px;box-shadow:0 5px 0 var(--line)}
+
+/* phase 2, section 3: home */
+#lockBtn{display:none;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--surface);border:2px solid var(--line);color:var(--text);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.authed #lockBtn{display:grid}
+.authed #age{display:none}
+#lockBtn svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+[data-theme="young"] #lockBtn:active,[data-theme="kids"] #lockBtn:active{transform:scale(.86)}
+[data-theme="senior"] #lockBtn{border-width:3px;width:56px;height:56px}
+.home-hi{font-size:1.6em}
+.balcard{display:flex;flex-direction:column;gap:6px;padding:22px 22px 20px;border-radius:calc(var(--radius) + 6px);background:var(--btn-bg);color:var(--on-accent)}
+[data-theme="young"] .balcard{box-shadow:var(--glow)}
+[data-theme="senior"] .balcard{border:3px solid var(--line)}
+[data-theme="kids"] .balcard{border:3px solid var(--line);box-shadow:0 6px 0 var(--line)}
+.bc-top{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:800}
+.bc-label{font-weight:600;margin-top:6px}
+.bc-amt{font-size:clamp(30px,9vw,44px);font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;overflow-wrap:anywhere}
+.eye{display:grid;place-items:center;width:48px;height:48px;flex:none;border-radius:50%;background:transparent;border:2px solid currentColor;color:inherit}
+.eye svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.bc-bio{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:2px solid currentColor;font-weight:700;font-size:.8em}
+.pill svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+
 /* payment scan runs by itself */
 .scan.auto .bar{animation:fillring 1.9s linear forwards}
 @keyframes fillring{from{stroke-dashoffset:289}to{stroke-dashoffset:0}}
@@ -389,6 +419,7 @@ body.ret #age{display:none}
     <button role="radio" data-age="senior" aria-checked="false">41+</button>
     <button role="radio" data-age="kids" aria-checked="false">Kids</button>
   </div>
+  <button type="button" id="lockBtn" aria-label="Lock app"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="28" width="32" height="24" rx="6"/><path d="M22 28v-6a10 10 0 0 1 20 0v6"/></svg></button>
   <ol class="progress off" id="progress" aria-label="Progress" style="width:100%"></ol>
 </header>
 
@@ -428,7 +459,7 @@ async function hashSecret(text, saltHex) {
 }
 function persist() {
   if (!state.user || !state.activated) return;
-  profileStore.save({ v: 1, name: state.user.name, age: state.age, bank: state.bank, balance: state.balance ?? null,
+  profileStore.save({ v: 1, name: state.user.name, email: state.user.email || null, age: state.age, bank: state.bank, balance: state.balance ?? null,
     method: state.method, enrolled: state.enrolled || {}, pw: state.pw || null, login: state.login || null, pass: state.pass || null,
     tx: (state.tx || []).slice(0, 50), saved: Date.now() });
 }
@@ -703,7 +734,7 @@ screens[5] = () => {
 stage.addEventListener("click", e => {
   if (!e.target.closest('[data-act="activate"]')) return;
   const b = $("#activate"); b.disabled = true; b.innerHTML = '<span class="spin"></span>Activating';
-  setTimeout(() => { state.activated = true; state.celebrate = true; persist(); go(5); }, 1100);
+  setTimeout(() => { state.activated = true; state.signedIn = true; state.celebrate = true; persist(); go(5); }, 1100);
 });
 afterRender[5] = () => { if (state.celebrate) { state.celebrate = false; confetti(); } };
 
@@ -748,23 +779,23 @@ const newOrder = () => {
 };
 stage.addEventListener("click", e => {
   const a = e.target.closest("[data-act]")?.dataset.act;
-  if (a === "try" || a === "again") { if (state.balance == null) state.balance = 250; state.order = newOrder(); state.payStage = "scan";
+  if (a === "try" || a === "again") { if (state.balance == null) state.balance = 250; state.order = newOrder(); state.payStage = "scan"; state.balFrom = null;
     const ks = Object.keys(state.enrolled || {}); state.payMethod = ks.length ? ks[Math.random() * ks.length | 0] : state.method; go(6); }
   if (a === "restart") {
-    profileStore.clear(); ["lock", "setup", "signedIn", "pw", "login", "pass", "tx", "user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "all", "queue", "enrolled", "payMethod", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
+    profileStore.clear(); ["lock", "setup", "signedIn", "balFrom", "hideBal", "pw", "login", "pass", "tx", "user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "all", "queue", "enrolled", "payMethod", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
     go(0);
   }
 });
 screens[6] = () => {
   const o = state.order || (state.order = newOrder());
   if (state.payStage === "declined") return `<h2 tabindex="-1">Declined</h2><p class="sub">${o.shop}, ${kwd(o.amount)}</p>
-    <div class="row"><button class="btn ghost" data-act="restart">Start over</button><button class="btn" data-act="again">Try again</button></div>`;
+    <div class="row">${state.signedIn ? '<button class="btn ghost" data-act="home">Done</button>' : '<button class="btn ghost" data-act="restart">Start over</button>'}<button class="btn" data-act="again">Try again</button></div>`;
   if (state.payStage === "paid") return `<div class="big"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M16 34l12 12 22-26"/></svg></div>
     <h2 class="center" tabindex="-1">Paid ✅</h2>
     <div class="card"><span>${o.shop}</span><span>${kwd(o.amount)}</span></div>
     <div class="card"><span>${state.bank || "Bank"}</span><span id="bal">${kwd(state.prevBalance ?? state.balance)}</span></div>
     <p class="pid">Ref ${state.receipt}</p>
-    <div class="row"><button class="btn ghost" data-act="restart">Start over</button><button class="btn" data-act="again">Pay again</button></div>`;
+    <div class="row">${state.signedIn ? '<button class="btn ghost" data-act="home">Done</button>' : '<button class="btn ghost" data-act="restart">Start over</button>'}<button class="btn" data-act="again">Pay again</button></div>`;
   return `<h2 tabindex="-1">${kwd(o.amount)}</h2><p class="sub">${o.shop}</p>
     <div class="scanwrap">
       <div class="scan hold auto" aria-hidden="true">
@@ -774,7 +805,7 @@ screens[6] = () => {
       </div>
       <div class="status" role="status">Scanning</div>
     </div>
-    <div class="row"><button class="btn ghost" data-go="5">Cancel</button></div>`;
+    <div class="row"><button class="btn ghost" data-go="${state.signedIn ? 10 : 5}">Cancel</button></div>`;
 };
 afterRender[6] = () => {
   const o = state.order; if (!o) return;
@@ -791,6 +822,7 @@ afterRender[6] = () => {
   } else if (state.payStage === "paid") {
     if (state.celebrate) { state.celebrate = false; confetti(); }
     const el = $("#bal"), from = state.prevBalance, to = state.balance, t0 = performance.now();
+    state.balFrom = from;   // the home screen counts down from here
     (function tick(now){
       const p = Math.min((now - t0) / 1200, 1), ease = 1 - Math.pow(1 - p, 3);
       el.textContent = kwd(from + (to - from) * ease);
@@ -903,7 +935,8 @@ screens[7] = () => {
   const body = L.method === "passcode" ? `<p class="msg" id="lmsg">Enter passcode</p>${padHTML()}`
     : L.method === "face" ? `${faceHTML("Getting ready")}<p class="msg" id="lmsg"></p>`
     : L.method === "password" ? `<form id="pwForm"><label class="field"><span>Password</span><input id="pwIn" type="password" autocomplete="current-password" placeholder="Password" required></label>
-        <button class="btn" type="submit" id="pwGo">Unlock</button><p class="msg" id="lmsg" role="alert"></p></form>`
+        <button class="btn" type="submit" id="pwGo">Unlock</button><p class="msg" id="lmsg" role="alert">${L.note || ""}</p>
+        <button type="button" class="link" data-act="forgot">Forgot password?</button></form>`
     : `<p class="msg" id="lmsg"></p><div class="row"><button class="btn" data-act="unlock">Continue</button></div>`;   // no secret could be saved on this browser
   return `<div class="big sm">${LOCK_ICON}</div>
     <h2 class="center" tabindex="-1">Hi, ${esc(state.user?.name || "")}</h2>${body}
@@ -911,6 +944,7 @@ screens[7] = () => {
 };
 afterRender[7] = () => {
   const L = state.lock, msg = $("#lmsg"), what = L.method === "passcode" ? "passcode" : "password";
+  L.note = "";
   let timer = 0, pad = null;
   const pw = $("#pwIn"), go_ = $("#pwGo");
   const setLocked = on => { if (pad) pad.locked = on; if (pw) { pw.disabled = on; go_.disabled = on; } };
@@ -924,7 +958,7 @@ afterRender[7] = () => {
     if (++L.tries >= 5) { L.tries = 0; L.until = Date.now() + 30000; startLock(); return; }
     msg.textContent = `Wrong ${what}. ${5 - L.tries} left`; msg.classList.add("bad");
   };
-  const unlock = () => { L.tries = 0; state.signedIn = true; state.celebrate = true; go(10); };
+  const unlock = () => { L.tries = 0; state.signedIn = true; state.celebrate = true; state.balFrom = ["young", "kids"].includes(state.age) ? 0 : null; go(10); };
   if (L.method === "passcode") pad = padInit(async (code, p) => { if (await verifySecret(code, state.pass)) unlock(); else { p.reset(true); fail(); } });
   if (L.method === "face") faceScan(unlock);
   if (L.method === "password") {
@@ -940,14 +974,79 @@ stage.addEventListener("click", e => {
   if (m) { state.lock.method = m.dataset.lm; go(7); }
   if (e.target.closest('[data-act="unlock"]')) { state.signedIn = true; go(10); }
   if (e.target.closest('[data-act="forget"]')) { profileStore.clear(); location.reload(); }
-  if (e.target.closest('[data-act="logout"]')) { state.signedIn = false; state.lock = null; go(7); }
 });
 
-/* Signed-in placeholder: section 3 replaces it with the real home screen */
-screens[10] = () => `<div class="big"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M16 34l12 12 22-26"/></svg></div>
-  <h2 class="center" tabindex="-1">Signed in</h2><p class="sub center">Home comes next</p>
-  <div class="row"><button class="btn ghost" data-act="logout">Log out</button></div>`;
-afterRender[10] = () => { if (state.celebrate) { state.celebrate = false; confetti(); } };
+/* Forgot password. Demo only: no email is really sent, the "email" is a card on screen. */
+const maskEmail = m => { const [u, d] = String(m || "").split("@"); return d && u ? u[0] + "***@" + d : "your email"; };
+screens[11] = () => `<div class="big sm"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="16" width="44" height="32" rx="6"/><path d="M12 20l20 16 20-16"/></svg></div>
+  <h2 class="center" tabindex="-1">Check your email</h2>
+  <p class="sub center">We sent a link to <b>${esc(maskEmail(state.user?.email))}</b></p>
+  <div class="mailcard"><p class="mc-from">Pay With You</p><p class="mc-subj">Reset your password</p>
+    <button type="button" class="btn" data-act="resetopen">Reset password</button><p class="mc-demo">Demo email: nothing was really sent</p></div>
+  <div class="row"><button class="btn ghost" data-go="7">Back</button></div>`;
+screens[12] = () => `<h2 tabindex="-1">New password</h2>
+  <form id="resetForm">
+    <label class="field"><span>New password</span><input name="p1" type="password" required minlength="8" placeholder="8+ characters" autocomplete="new-password"></label>
+    <label class="field"><span>Repeat</span><input name="p2" type="password" required minlength="8" placeholder="Repeat password" autocomplete="new-password"></label>
+    <p class="msg" id="rmsg" role="alert"></p>
+    <div class="row"><button type="button" class="btn ghost" data-go="7">Cancel</button><button class="btn" type="submit">Save</button></div>
+  </form>`;
+stage.addEventListener("submit", async e => {
+  if (e.target.id !== "resetForm") return;
+  const f = new FormData(e.target), msg = $("#rmsg"), bad = t => { msg.textContent = t; msg.classList.add("bad"); };
+  if (f.get("p1") !== f.get("p2")) return bad("Don't match");
+  const h = await hashSecret(f.get("p1"));
+  if (!h) return bad("Can't save a password here");
+  state.pw = h; persist();
+  state.lock = { method: "password", tries: 0, until: 0, note: "Password changed ✅" };   // a reset also clears the lockout
+  go(7);
+});
+
+/* Phase 2, section 3: home. The balance, the biometrics in use and a Pay button. Demo only. */
+const EYE = '<path d="M4 32s10-16 28-16 28 16 28 16-10 16-28 16S4 32 4 32z"/><circle cx="32" cy="32" r="7"/>';
+const EYE_OFF = EYE + '<path d="M10 54L54 10"/>';
+screens[10] = () => {
+  const kids = state.age === "kids", kinds = Object.keys(state.enrolled || {}), list = kinds.length ? kinds : [state.method || "face"];
+  return `<h2 class="home-hi" tabindex="-1">Hi, ${esc(state.user?.name || "")}</h2>
+  <section class="balcard" aria-label="Balance">
+    <div class="bc-top"><span>${esc(state.bank || "Bank")}${kids ? " · Parent" : ""}</span>
+      <button type="button" class="eye" id="eye" aria-pressed="${!!state.hideBal}" aria-label="${state.hideBal ? "Show balance" : "Hide balance"}"><svg viewBox="0 0 64 64" aria-hidden="true">${state.hideBal ? EYE_OFF : EYE}</svg></button></div>
+    <div class="bc-label">Balance</div>
+    <div class="bc-amt" id="amt">${state.hideBal ? "KWD ••••" : kwd(state.balance ?? 0)}</div>
+    <div class="bc-bio">${list.map(k => `<span class="pill"><svg viewBox="0 0 64 64" aria-hidden="true">${ICONS[k]}</svg>${METHODS[k]}</span>`).join("")}</div>
+  </section>
+  <div class="row"><button class="btn" data-act="try">Pay</button></div>
+  <button type="button" class="link" data-act="resetdemo">Reset demo</button>`;
+};
+afterRender[10] = () => {
+  if (state.celebrate) { state.celebrate = false; confetti(); }
+  const el = $("#amt"), from = state.balFrom, to = state.balance ?? 0; state.balFrom = null;
+  if (from == null || from === to || state.hideBal || reduced) return;   // young/kids count up on sign-in, everyone counts down after a payment
+  const t0 = performance.now();
+  (function tick(now) {
+    const p = Math.min((now - t0) / 1000, 1), ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = kwd(from + (to - from) * ease);
+    if (p < 1 && document.body.contains(el)) requestAnimationFrame(tick);
+  })(t0);
+};
+$("#lockBtn").addEventListener("click", () => { state.signedIn = false; state.lock = null; go(7); });
+stage.addEventListener("click", e => {
+  const ey = e.target.closest("#eye");
+  if (ey) {
+    state.hideBal = !state.hideBal; ey.setAttribute("aria-pressed", state.hideBal); ey.setAttribute("aria-label", state.hideBal ? "Show balance" : "Hide balance");
+    ey.firstElementChild.innerHTML = state.hideBal ? EYE_OFF : EYE; $("#amt").textContent = state.hideBal ? "KWD ••••" : kwd(state.balance ?? 0);
+  }
+  const rd = e.target.closest('[data-act="resetdemo"]');
+  if (rd) {
+    if (rd.dataset.armed) { profileStore.clear(); location.reload(); return; }
+    rd.dataset.armed = "1"; rd.textContent = "Tap again to reset";
+    setTimeout(() => { delete rd.dataset.armed; rd.textContent = "Reset demo"; }, 3000);
+  }
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "forgot") go(11);
+  if (act === "resetopen") go(12);
+  if (act === "home") go(10);
+});
 
 const placeholder = i => `<h2 tabindex="-1">${STEPS[i-1]}</h2><p class="sub">Coming next</p>
   <div class="row"><button class="btn ghost" data-go="${i-1}">Back</button>
@@ -958,6 +1057,8 @@ function go(i){
   stopCam();   // the camera is only on during the scan step
   if (keyHandler) { removeEventListener("keydown", keyHandler); keyHandler = null; }
   const back = i < state.step; state.step = i;
+  document.body.classList.toggle("authed", i === 10 || (i === 6 && !!state.signedIn));
+  if (state.activated) document.body.classList.add("ret");   // an account exists: the theme is fixed, so the age chips go away
   stage.innerHTML = `<section class="screen${back ? " back" : ""}">${(screens[i] || (() => placeholder(i)))()}</section>`;
   progress.classList.toggle("off", i === 0 || i > STEPS.length);
   [...progress.children].forEach((li, n) => { li.className = n + 1 < i ? "done" : n + 1 === i ? "now" : ""; });
@@ -974,7 +1075,7 @@ const saved = profileStore.load();
 const showPick = () => intro.classList.add("s-pick");
 if (saved) {
   /* Returning user: their theme from the first frame, wave then name, tap to skip, then the lock screen */
-  Object.assign(state, { user: { name: saved.name, ageRange: AGE_LABEL[saved.age], linkedToParent: saved.age === "kids" }, bank: saved.bank, balance: saved.balance,
+  Object.assign(state, { user: { name: saved.name, email: saved.email || "", ageRange: AGE_LABEL[saved.age], linkedToParent: saved.age === "kids" }, bank: saved.bank, balance: saved.balance,
     method: saved.method, enrolled: saved.enrolled || {}, pw: saved.pw, login: saved.login, pass: saved.pass, tx: saved.tx || [], activated: true });
   setAge(saved.age);
   document.body.classList.add("ret");
