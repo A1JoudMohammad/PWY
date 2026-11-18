@@ -314,6 +314,35 @@ body.ret #age{display:none}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:2px solid currentColor;font-weight:700;font-size:.8em}
 .pill svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
 
+/* phase 2, section 4: recent transactions */
+.recent{display:flex;flex-direction:column;gap:10px}
+.rtab{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 18px;border-radius:var(--radius);background:var(--surface);border:2px solid var(--line);
+  font-weight:800;font-size:1.05em;text-align:left;color:var(--text);transition:transform .3s cubic-bezier(.34,1.56,.64,1),border-color .2s}
+.rtab>span:first-child{flex:1}
+.rc{min-width:28px;padding:2px 9px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:.8em;text-align:center}
+.chev{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;transition:transform .3s}
+.rtab[aria-expanded="true"] .chev{transform:rotate(180deg)}
+[data-theme="young"] .rtab:active,[data-theme="kids"] .rtab:active{transform:scale(.97)}
+[data-theme="senior"] .rtab{border-width:3px;min-height:64px}
+[data-theme="kids"] .rtab{border-width:3px;box-shadow:0 4px 0 var(--line)}
+.txl[hidden],.link[hidden]{display:none}
+.txl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.tx{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:var(--radius);background:var(--surface);border:2px solid var(--line)}
+.txi{display:grid;place-items:center;width:46px;height:46px;flex:none;border-radius:50%;background:var(--btn-bg);color:var(--on-accent)}
+.txi svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.txm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.txm b{font-weight:800;overflow-wrap:break-word}
+.txm small{color:var(--muted);font-size:.82em;font-weight:600}
+.txa{font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.txe{padding:18px;text-align:center;color:var(--muted);font-weight:600}
+.tx.fresh{animation:var(--enter);border-color:var(--accent)}
+[data-theme="young"] .tx.fresh{box-shadow:var(--glow)}
+[data-theme="senior"] .tx{border-width:3px;padding:16px 18px;display:grid;grid-template-columns:auto 1fr;column-gap:16px;row-gap:6px;align-items:center}
+[data-theme="senior"] .txi{width:54px;height:54px;grid-row:span 2}
+[data-theme="senior"] .txa{grid-column:2}
+[data-theme="kids"] .tx{border-width:3px;box-shadow:0 4px 0 var(--line)}
+@media (max-width:380px){.tx{gap:10px;padding:10px 12px}.txi{width:40px;height:40px}}
+
 /* payment scan runs by itself */
 .scan.auto .bar{animation:fillring 1.9s linear forwards}
 @keyframes fillring{from{stroke-dashoffset:289}to{stroke-dashoffset:0}}
@@ -734,7 +763,7 @@ screens[5] = () => {
 stage.addEventListener("click", e => {
   if (!e.target.closest('[data-act="activate"]')) return;
   const b = $("#activate"); b.disabled = true; b.innerHTML = '<span class="spin"></span>Activating';
-  setTimeout(() => { state.activated = true; state.signedIn = true; state.celebrate = true; persist(); go(5); }, 1100);
+  setTimeout(() => { state.activated = true; state.signedIn = true; state.celebrate = true; seedTx(); persist(); go(5); }, 1100);
 });
 afterRender[5] = () => { if (state.celebrate) { state.celebrate = false; confetti(); } };
 
@@ -782,7 +811,7 @@ stage.addEventListener("click", e => {
   if (a === "try" || a === "again") { if (state.balance == null) state.balance = 250; state.order = newOrder(); state.payStage = "scan"; state.balFrom = null;
     const ks = Object.keys(state.enrolled || {}); state.payMethod = ks.length ? ks[Math.random() * ks.length | 0] : state.method; go(6); }
   if (a === "restart") {
-    profileStore.clear(); ["lock", "setup", "signedIn", "balFrom", "hideBal", "pw", "login", "pass", "tx", "user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "all", "queue", "enrolled", "payMethod", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
+    profileStore.clear(); ["lock", "setup", "signedIn", "balFrom", "hideBal", "newTx", "recentOpen", "showAllTx", "pw", "login", "pass", "tx", "user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "all", "queue", "enrolled", "payMethod", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
     go(0);
   }
 });
@@ -822,7 +851,7 @@ afterRender[6] = () => {
   } else if (state.payStage === "paid") {
     if (state.celebrate) { state.celebrate = false; confetti(); }
     const el = $("#bal"), from = state.prevBalance, to = state.balance, t0 = performance.now();
-    state.balFrom = from;   // the home screen counts down from here
+    state.balFrom = from; state.newTx = true;   // the home screen counts down from here and highlights the new row
     (function tick(now){
       const p = Math.min((now - t0) / 1200, 1), ease = 1 - Math.pow(1 - p, 3);
       el.textContent = kwd(from + (to - from) * ease);
@@ -1003,6 +1032,24 @@ stage.addEventListener("submit", async e => {
 });
 
 /* Phase 2, section 3: home. The balance, the biometrics in use and a Pay button. Demo only. */
+/* A new account starts with a few sample payments so the Recent tab is never empty. Demo data only. */
+function seedTx() {
+  if (state.tx?.length) return;
+  const ks = Object.keys(state.enrolled || {}), pick = () => ks.length ? ks[Math.random() * ks.length | 0] : (state.method || "face"), H = 3600e3;
+  state.tx = [[26, "Demo market", 2.5], [51, "Demo cafe", 1.25], [77, "Demo bakery", 3.75]].map(([h, shop, amount]) => ({ shop, amount, method: pick(), ref: "TX-SAMPLE", t: Date.now() - h * H, sample: true }));
+}
+const timeAgo = t => {
+  const m = Math.round((Date.now() - t) / 60000), d = new Date(t), now = new Date();
+  if (m < 1) return "Just now";
+  if (m < 60) return m + " min ago";
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), diff = Math.round((day(now) - day(d)) / 864e5);
+  const hm = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return diff === 0 ? "Today " + hm : diff === 1 ? "Yesterday " + hm : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + hm;
+};
+const txRow = (x, i) => `<li class="tx${i === 0 && state.newTx ? " fresh" : ""}"><span class="txi"><svg viewBox="0 0 64 64" aria-hidden="true">${ICONS[x.method] || ICONS.face}</svg></span>
+  <span class="txm"><b>${esc(x.shop)}</b><small>${METHODS[x.method] || "Biometric"} · ${timeAgo(x.t)}</small></span><span class="txa">−${kwd(x.amount)}</span></li>`;
+const txList = () => { const all = state.tx || [], shown = state.showAllTx ? all : all.slice(0, 5);
+  return all.length ? shown.map(txRow).join("") : '<li class="txe">No payments yet</li>'; };
 const EYE = '<path d="M4 32s10-16 28-16 28 16 28 16-10 16-28 16S4 32 4 32z"/><circle cx="32" cy="32" r="7"/>';
 const EYE_OFF = EYE + '<path d="M10 54L54 10"/>';
 screens[10] = () => {
@@ -1016,9 +1063,16 @@ screens[10] = () => {
     <div class="bc-bio">${list.map(k => `<span class="pill"><svg viewBox="0 0 64 64" aria-hidden="true">${ICONS[k]}</svg>${METHODS[k]}</span>`).join("")}</div>
   </section>
   <div class="row"><button class="btn" data-act="try">Pay</button></div>
+  <section class="recent" aria-label="Recent payments">
+    <button type="button" class="rtab" id="rtab" aria-expanded="${state.recentOpen !== false}" aria-controls="rlist"><span>Recent</span><span class="rc">${(state.tx || []).length}</span>
+      <svg class="chev" viewBox="0 0 64 64" aria-hidden="true"><path d="M14 24l18 18 18-18"/></svg></button>
+    <ul class="txl" id="rlist" ${state.recentOpen === false ? "hidden" : ""}>${txList()}</ul>
+    ${(state.tx || []).length > 5 ? `<button type="button" class="link" id="rmore" ${state.recentOpen === false ? "hidden" : ""}>${state.showAllTx ? "Show less" : "Show all"}</button>` : ""}
+  </section>
   <button type="button" class="link" data-act="resetdemo">Reset demo</button>`;
 };
 afterRender[10] = () => {
+  state.newTx = false;
   if (state.celebrate) { state.celebrate = false; confetti(); }
   const el = $("#amt"), from = state.balFrom, to = state.balance ?? 0; state.balFrom = null;
   if (from == null || from === to || state.hideBal || reduced) return;   // young/kids count up on sign-in, everyone counts down after a payment
@@ -1036,6 +1090,10 @@ stage.addEventListener("click", e => {
     state.hideBal = !state.hideBal; ey.setAttribute("aria-pressed", state.hideBal); ey.setAttribute("aria-label", state.hideBal ? "Show balance" : "Hide balance");
     ey.firstElementChild.innerHTML = state.hideBal ? EYE_OFF : EYE; $("#amt").textContent = state.hideBal ? "KWD ••••" : kwd(state.balance ?? 0);
   }
+  const rt = e.target.closest("#rtab");
+  if (rt) { state.recentOpen = state.recentOpen === false; rt.setAttribute("aria-expanded", state.recentOpen); $("#rlist").hidden = !state.recentOpen; const mo = $("#rmore"); if (mo) mo.hidden = !state.recentOpen; }
+  const rm = e.target.closest("#rmore");
+  if (rm) { state.showAllTx = !state.showAllTx; $("#rlist").innerHTML = txList(); rm.textContent = state.showAllTx ? "Show less" : "Show all"; }
   const rd = e.target.closest('[data-act="resetdemo"]');
   if (rd) {
     if (rd.dataset.armed) { profileStore.clear(); location.reload(); return; }
@@ -1077,6 +1135,7 @@ if (saved) {
   /* Returning user: their theme from the first frame, wave then name, tap to skip, then the lock screen */
   Object.assign(state, { user: { name: saved.name, email: saved.email || "", ageRange: AGE_LABEL[saved.age], linkedToParent: saved.age === "kids" }, bank: saved.bank, balance: saved.balance,
     method: saved.method, enrolled: saved.enrolled || {}, pw: saved.pw, login: saved.login, pass: saved.pass, tx: saved.tx || [], activated: true });
+  seedTx();
   setAge(saved.age);
   document.body.classList.add("ret");
   intro.classList.add("ret"); intro.setAttribute("aria-label", "Welcome back");
