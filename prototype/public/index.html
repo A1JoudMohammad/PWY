@@ -226,6 +226,36 @@ body:not(.on) header,body:not(.on) footer{opacity:0}
 @keyframes handin{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 @keyframes wave{0%{transform:rotate(0)}12%{transform:rotate(16deg)}24%{transform:rotate(-10deg)}36%{transform:rotate(16deg)}48%{transform:rotate(-6deg)}60%{transform:rotate(12deg)}72%,100%{transform:rotate(0)}}
 
+h1:focus,h2:focus,h1:focus-visible,h2:focus-visible{outline:none}   /* headings only take focus so screen readers announce the new screen */
+/* phase 2: returning user. The opening plays in their own theme and the age picker is gone. */
+body.ret #age{display:none}
+#intro.ret{background:transparent;color:var(--text)}
+#intro.ret .intro-pick{display:none}
+#intro.ret .intro-stage{height:180px;transition:opacity .45s ease,transform .45s ease}
+#intro.ret .intro-name{font-size:clamp(2.2rem,10.5vw,3.5rem)}
+/* 16-25: neon, bouncy */
+[data-theme="young"] #intro.ret .wave span{filter:drop-shadow(0 0 16px #ff2bd6)}
+[data-theme="young"] #intro.ret .intro-name{transform:scale(.5);transition:opacity .5s ease,transform .8s cubic-bezier(.34,1.56,.64,1);
+  background:linear-gradient(90deg,#ff2bd6,#00f0ff,#b6ff3b,#ff2bd6);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shine 3s linear infinite;filter:drop-shadow(0 0 14px rgba(255,43,214,.55))}
+[data-theme="young"] #intro.ret.s-name .intro-name{transform:none}
+[data-theme="young"] #intro.ret.out .intro-stage{opacity:0;transform:scale(1.5)}
+/* kids: cartoon */
+[data-theme="kids"] #intro.ret .wave{font-size:116px}
+[data-theme="kids"] #intro.ret .intro-name{transform:scale(.6) rotate(-6deg);transition:opacity .4s ease,transform .8s cubic-bezier(.34,1.56,.64,1);
+  color:var(--accent);text-shadow:-3px -3px 0 var(--line),3px -3px 0 var(--line),-3px 3px 0 var(--line),3px 3px 0 var(--line),0 7px 0 var(--line)}
+[data-theme="kids"] #intro.ret.s-name .intro-name{transform:rotate(-2deg)}
+[data-theme="kids"] #intro.ret.out .intro-stage{opacity:0;transform:translateY(-60px) scale(.7) rotate(-6deg);transition-timing-function:cubic-bezier(.34,1.56,.64,1)}
+/* 26-40: calm fade */
+[data-theme="mid"] #intro.ret .wave span{animation-duration:2.2s}
+[data-theme="mid"] #intro.ret.out .intro-stage{opacity:0}
+/* 41+: plain, bold, large */
+[data-theme="senior"] #intro.ret .wave{font-size:112px}
+[data-theme="senior"] #intro.ret .wave,[data-theme="senior"] #intro.ret .intro-name{transition:opacity .4s linear;transform:none;filter:none}
+[data-theme="senior"] #intro.ret .intro-name{font-size:clamp(2.6rem,12vw,4rem);font-weight:900;letter-spacing:-.01em;white-space:normal;text-align:center}
+[data-theme="senior"] #intro.ret.s-name .wave{transform:none;filter:none}
+[data-theme="senior"] #intro.ret.out .intro-stage{opacity:0;transition-duration:.25s}
+
 /* payment scan runs by itself */
 .scan.auto .bar{animation:fillring 1.9s linear forwards}
 @keyframes fillring{from{stroke-dashoffset:289}to{stroke-dashoffset:0}}
@@ -339,11 +369,42 @@ body:not(.on) header,body:not(.on) footer{opacity:0}
 
 <script src="paymentService.js"></script>
 <script>
-/* In-memory state only: nothing is stored. Only the payment amount and shop name go to paymentService. */
+/* Flow state lives in memory. After activation a small demo profile is saved in this browser only (see profileStore). Only the payment amount and shop name go to paymentService. */
 const STEPS = ["Sign up","Bank","Biometric","Scan","Activate","Pay"];
 const state = { age:"young", step:0 };           // step 0 = hero, 1..6 = STEPS
 const $ = s => document.querySelector(s);
 const stage = $("#stage"), progress = $("#progress");
+
+/* Phase 2: a small demo profile is kept in this browser only (localStorage). Nothing is sent anywhere.
+   No biometric data, no card or account numbers: just the name, theme, bank name, mock balance, mock print IDs and hashed secrets. */
+const profileStore = (() => {
+  const KEY = "pwy.demo.profile.v1";
+  const valid = p => p && p.v === 1 && typeof p.name === "string" && ["young", "mid", "senior", "kids"].includes(p.age);
+  return {
+    load() { try { const p = JSON.parse(localStorage.getItem(KEY)); return valid(p) ? p : null; } catch { return null; } },
+    save(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); return true; } catch { return false; } },
+    clear() { try { localStorage.removeItem(KEY); } catch {} }
+  };
+})();
+const toHex = bytes => [...bytes].map(n => n.toString(16).padStart(2, "0")).join("");
+const fromHex = h => Uint8Array.from(h.match(/../g) || [], x => parseInt(x, 16));
+/* Passwords and passcodes are never stored as typed: only a salted PBKDF2 hash. Returns null if the browser can't hash. */
+async function hashSecret(text, saltHex) {
+  try {
+    if (!crypto?.subtle) return null;
+    const salt = saltHex ? fromHex(saltHex) : crypto.getRandomValues(new Uint8Array(16));
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(text), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" }, key, 256);
+    return { salt: toHex(salt), hash: toHex(new Uint8Array(bits)) };
+  } catch { return null; }
+}
+function persist() {
+  if (!state.user || !state.activated) return;
+  profileStore.save({ v: 1, name: state.user.name, age: state.age, bank: state.bank, balance: state.balance ?? null,
+    method: state.method, enrolled: state.enrolled || {}, pw: state.pw || null, login: state.login || null, pass: state.pass || null,
+    tx: (state.tx || []).slice(0, 50), saved: Date.now() });
+}
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 progress.innerHTML = STEPS.map(n => `<li title="${n}"></li>`).join("") ;
 progress.insertAdjacentHTML("afterend", '<div class="step-name" id="stepName" style="width:100%"></div>');
@@ -396,6 +457,7 @@ stage.addEventListener("submit", e => {
   if (e.target.id !== "signup") return;
   const f = new FormData(e.target);
   state.user = { name: f.get("name").trim(), email: f.get("email").trim(), ageRange: AGE_LABEL[state.age], linkedToParent: state.age === "kids" };
+  hashSecret(f.get("password")).then(h => { state.pw = h; });   // only a salted hash is kept, never the password itself
   go(2);
 });
 
@@ -612,7 +674,7 @@ screens[5] = () => {
 stage.addEventListener("click", e => {
   if (!e.target.closest('[data-act="activate"]')) return;
   const b = $("#activate"); b.disabled = true; b.innerHTML = '<span class="spin"></span>Activating';
-  setTimeout(() => { state.activated = true; state.celebrate = true; go(5); }, 1100);
+  setTimeout(() => { state.activated = true; state.celebrate = true; persist(); go(5); }, 1100);
 });
 afterRender[5] = () => { if (state.celebrate) { state.celebrate = false; confetti(); } };
 
@@ -660,7 +722,7 @@ stage.addEventListener("click", e => {
   if (a === "try" || a === "again") { if (state.balance == null) state.balance = 250; state.order = newOrder(); state.payStage = "scan";
     const ks = Object.keys(state.enrolled || {}); state.payMethod = ks.length ? ks[Math.random() * ks.length | 0] : state.method; go(6); }
   if (a === "restart") {
-    ["user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "all", "queue", "enrolled", "payMethod", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
+    profileStore.clear(); ["pw", "login", "pass", "tx", "user", "bank", "bankStage", "otpCode", "balance", "prevBalance", "method", "printId", "all", "queue", "enrolled", "payMethod", "activated", "order", "payStage", "receipt", "celebrate"].forEach(k => delete state[k]);
     go(0);
   }
 });
@@ -693,7 +755,9 @@ afterRender[6] = () => {
       if (state.payTok !== tok || state.step !== 6) return;   // cancelled or left the screen
       if (!res.ok) { state.payStage = "declined"; go(6); return; }
       state.prevBalance = state.balance; state.balance = Math.round((state.balance - res.amount) * 1000) / 1000;
-      state.receipt = res.ref; state.payStage = "paid"; state.celebrate = true; go(6);
+      state.receipt = res.ref; state.payStage = "paid"; state.celebrate = true;
+      (state.tx ||= []).unshift({ shop: o.shop, amount: res.amount, method: state.payMethod || state.method, ref: res.ref, t: Date.now() });
+      persist(); go(6);
     });
   } else if (state.payStage === "paid") {
     if (state.celebrate) { state.celebrate = false; confetti(); }
@@ -706,6 +770,13 @@ afterRender[6] = () => {
   }
 };
 
+/* Phase 2, section 1: placeholder lock screen. Section 2 replaces it with the real sign-in. */
+screens[7] = () => `<div class="big"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="28" width="32" height="24" rx="6"/><path d="M22 28v-6a10 10 0 0 1 20 0v6"/></svg></div>
+  <h2 class="center" tabindex="-1">Hi, ${esc(state.user?.name || "")}</h2>
+  <p class="sub center">Sign-in comes next</p>
+  <div class="row"><button class="btn ghost" data-act="forget">Not you?</button></div>`;
+stage.addEventListener("click", e => { if (e.target.closest('[data-act="forget"]')) { profileStore.clear(); location.reload(); } });
+
 const placeholder = i => `<h2 tabindex="-1">${STEPS[i-1]}</h2><p class="sub">Coming next</p>
   <div class="row"><button class="btn ghost" data-go="${i-1}">Back</button>
   ${i < STEPS.length ? `<button class="btn" data-go="${i+1}">Next</button>` : ""}</div>`;
@@ -714,9 +785,9 @@ function go(i){
   stopCam();   // the camera is only on during the scan step
   const back = i < state.step; state.step = i;
   stage.innerHTML = `<section class="screen${back ? " back" : ""}">${(screens[i] || (() => placeholder(i)))()}</section>`;
-  progress.classList.toggle("off", i === 0);
+  progress.classList.toggle("off", i === 0 || i > STEPS.length);
   [...progress.children].forEach((li, n) => { li.className = n + 1 < i ? "done" : n + 1 === i ? "now" : ""; });
-  $("#stepName").textContent = i ? STEPS[i-1] : "";
+  $("#stepName").textContent = STEPS[i-1] || "";
   stage.querySelector("h1,h2")?.focus({ preventScroll:true });
   afterRender[i]?.();
 }
@@ -725,10 +796,33 @@ stage.addEventListener("click", e => { const b = e.target.closest("[data-go]"); 
 /* Intro: the hand waves, fades into the name, then the age group is picked on a plain white screen */
 const intro = $("#intro"), reduced = matchMedia("(prefers-reduced-motion:reduce)").matches;
 document.documentElement.style.overflow = "hidden";
-setAge("mid");   // neutral until a group is chosen
+const saved = profileStore.load();
 const showPick = () => intro.classList.add("s-pick");
-if (reduced) { intro.classList.add("s-name"); showPick(); }
-else { setTimeout(() => intro.classList.add("s-name"), 2000); setTimeout(showPick, 3100); }
+if (saved) {
+  /* Returning user: their theme from the first frame, wave then name, tap to skip, then the lock screen */
+  Object.assign(state, { user: { name: saved.name, ageRange: AGE_LABEL[saved.age], linkedToParent: saved.age === "kids" }, bank: saved.bank, balance: saved.balance,
+    method: saved.method, enrolled: saved.enrolled || {}, pw: saved.pw, login: saved.login, pass: saved.pass, tx: saved.tx || [], activated: true });
+  setAge(saved.age);
+  document.body.classList.add("ret");
+  intro.classList.add("ret"); intro.setAttribute("aria-label", "Welcome back");
+  const OUT = { young: 450, kids: 520, mid: 500, senior: 250 }[saved.age];
+  let left = false, t1, t2;
+  const leave = () => {
+    if (left) return; left = true; clearTimeout(t1); clearTimeout(t2);
+    intro.classList.add("s-name"); intro.style.pointerEvents = "none";
+    if (!reduced) intro.classList.add("out");
+    setTimeout(() => { go(7); document.body.classList.add("on"); }, reduced ? 0 : OUT);
+    setTimeout(() => { intro.remove(); document.documentElement.style.overflow = ""; }, reduced ? 50 : OUT + 900);
+  };
+  t1 = setTimeout(() => intro.classList.add("s-name"), reduced ? 0 : 2000);
+  t2 = setTimeout(leave, reduced ? 700 : 3900);
+  intro.addEventListener("click", leave);
+  addEventListener("keydown", leave, { once: true });
+} else {
+  setAge("mid");   // neutral until a group is chosen
+  if (reduced) { intro.classList.add("s-name"); showPick(); }
+  else { setTimeout(() => intro.classList.add("s-name"), 2000); setTimeout(showPick, 3100); }
+}
 intro.addEventListener("click", e => {
   const b = e.target.closest("[data-start]"); if (!b) return;
   intro.style.pointerEvents = "none";
